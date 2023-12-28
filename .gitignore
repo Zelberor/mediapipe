@@ -1,4 +1,5 @@
 bazel-*
+/toolchain.generated
 mediapipe/MediaPipe.xcodeproj
 mediapipe/MediaPipe.tulsiproj/*.tulsiconf-user
 mediapipe/provisioning_profile.mobileprovision
