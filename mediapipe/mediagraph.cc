@@ -2,8 +2,17 @@
 
 #include "mediagraph.h"
 #include "mediagraph_impl.h"
+#include "absl/flags/declare.h"
+#include "absl/flags/flag.h"
+
+ABSL_DECLARE_FLAG(std::string, resource_root_dir);
 
 namespace mediagraph {
+
+void set_resource_root_dir(const char* path) {
+	std::string resource_path{path};
+	absl::SetFlag(&FLAGS_resource_root_dir, resource_path);
+}
 
 Detector* Detector::Create(const char* graph_config, const Output* outputs, uint8_t num_outputs) {
     DetectorImpl* mediagraph = new DetectorImpl();

@@ -25,6 +25,8 @@
 
 namespace mediagraph {
 
+void set_resource_root_dir(const char* path);
+
 // -calculator_graph_config_file=mediapipe/graphs/pose_tracking/pose_tracking_cpu.pbtxt
 struct Landmark {
   float x;
