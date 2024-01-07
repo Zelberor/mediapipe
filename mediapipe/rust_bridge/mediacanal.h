@@ -1,0 +1,95 @@
+// Taken from https://github.com/julesyoungberg/mediapipe/tree/master
+
+// Copyright 2019 The MediaPipe Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// An example of sending OpenCV webcam frames into a MediaPipe graph.
+
+#ifndef MEDIACANAL_H
+#define MEDIACANAL_H
+
+// We need to define this class before bridge.rs.h, otherwise it will not be
+// found
+namespace mediacanal {
+class CxxPacket;
+class CxxGraph;
+} // namespace mediacanal
+
+#include <cstdint>
+#include <cstdlib>
+#include <string>
+
+#include "absl/status/status.h"
+#include "mediapipe/framework/calculator_framework.h"
+
+#include "cxx_generated/bridge.rs.h"
+
+// For converting exceptions to rust results
+namespace rust::behavior {
+template <typename Try, typename Fail>
+static void trycatch(Try &&func, Fail &&fail) noexcept try {
+  func();
+} catch (const std::exception &e) {
+  fail(e.what());
+}
+} // namespace rust::behavior
+
+namespace mediacanal {
+
+void mp_throw_if_error(const absl::Status &status);
+void set_resource_root_dir(rust::Str path);
+
+std::unique_ptr<CxxPacket>
+packet_from_image_data(const ImageMemoryInfo &memory_info);
+
+class CxxPacket {
+public:
+  const mediapipe::Packet packet_;
+  explicit CxxPacket(mediapipe::Packet packet);
+  std::unique_ptr<CxxPacket> at(int64 timestamp) const;
+  ImageMemoryInfo get_image_memory_info() const;
+  LandmarkList get_landmarks() const;
+  rust::Vec<LandmarkList> get_landmarks_list() const;
+};
+
+// Create and initialize using provided config
+// throws runtime exception if initialization failed
+std::unique_ptr<CxxGraph> new_cxx_graph(const CallbackHandler &rust_graph,
+                                        rust::Str config);
+
+class CxxGraph {
+private:
+  const CallbackHandler &rust_graph_;
+  mediapipe::CalculatorGraph mediapipe_graph_;
+  bool is_started_ = false;
+
+public:
+  CxxGraph(const CallbackHandler &rust_graph, const std::string &config);
+  CxxGraph(const CxxGraph &other) = delete;
+  CxxGraph &operator=(const CxxGraph &other) = delete;
+  CxxGraph &operator=(const CxxGraph &&other) = delete;
+  ~CxxGraph();
+
+  void start();
+  // Queues one image for processing
+  // Input data is expected to be ImageFormat::SRGB (24bits)
+  // Throws runtime exception if error
+  // Function does not take ownership of input data
+  void queue_packet(rust::Str input_id, std::unique_ptr<CxxPacket> packet);
+  void observe_output(rust::Str output_id);
+};
+
+} // namespace mediacanal
+
+#endif
