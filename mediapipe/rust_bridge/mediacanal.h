@@ -22,9 +22,9 @@
 // We need to define this class before bridge.rs.h, otherwise it will not be
 // found
 namespace mediacanal {
-class CxxPacket;
-class CxxGraph;
-} // namespace mediacanal
+    class CxxPacket;
+    class CxxGraph;
+}// namespace mediacanal
 
 #include <cstdint>
 #include <cstdlib>
@@ -37,59 +37,64 @@ class CxxGraph;
 
 // For converting exceptions to rust results
 namespace rust::behavior {
-template <typename Try, typename Fail>
-static void trycatch(Try &&func, Fail &&fail) noexcept try {
-  func();
-} catch (const std::exception &e) {
-  fail(e.what());
-}
-} // namespace rust::behavior
+    template<typename Try, typename Fail>
+    static void trycatch(Try &&func, Fail &&fail) noexcept try {
+        func();
+    } catch (const std::exception &e) {
+        fail(e.what());
+    }
+}// namespace rust::behavior
 
 namespace mediacanal {
 
-void mp_throw_if_error(const absl::Status &status);
-void set_resource_root_dir(rust::Str path);
+    void mp_throw_if_error(const absl::Status &status);
+    void set_resource_root_dir(rust::Str path);
 
-std::unique_ptr<CxxPacket>
-packet_from_image_data(const ImageMemoryInfo &memory_info);
+    std::unique_ptr<CxxPacket> packet_new_image_frame(const ImageMemoryInfo &memory_info);
+    std::unique_ptr<CxxPacket> packet_new_image(const ImageMemoryInfo &memory_info);
+    std::unique_ptr<CxxPacket> packet_new_int(int32 value);
+    std::unique_ptr<CxxPacket> packet_new_bool(bool value);
 
-class CxxPacket {
-public:
-  const mediapipe::Packet packet_;
-  explicit CxxPacket(mediapipe::Packet packet);
-  std::unique_ptr<CxxPacket> at(int64 timestamp) const;
-  ImageMemoryInfo get_image_memory_info() const;
-  LandmarkList get_landmarks() const;
-  rust::Vec<LandmarkList> get_landmarks_list() const;
-};
+    class CxxPacket {
+    public:
+        const mediapipe::Packet packet_;
+        explicit CxxPacket(mediapipe::Packet packet);
+        std::unique_ptr<CxxPacket> at(const Timestamp &timestamp) const;
+        Timestamp timestamp() const;
+        ImageMemoryInfo get_image_frame_memory_info() const;
+        ImageMemoryInfo get_image_memory_info() const;
+        Landmarks get_landmarks() const;
+        rust::Vec<Landmarks> get_landmarks_list() const;
+        Landmarks get_normalized_landmarks() const;
+        rust::Vec<Landmarks> get_normalized_landmarks_list() const;
+        Classifications get_classifications() const;
+        rust::Vec<Classifications> get_classifications_list() const;
+        int32 get_int() const;
+        bool get_bool() const;
+    };
 
-// Create and initialize using provided config
-// throws runtime exception if initialization failed
-std::unique_ptr<CxxGraph> new_cxx_graph(const CallbackHandler &rust_graph,
-                                        rust::Str config);
+    // Create and initialize using provided config
+    // throws runtime exception if initialization failed
+    std::unique_ptr<CxxGraph> new_cxx_graph(const CallbackHandler &rust_graph, rust::Str config, rust::Slice<const SidePacket> side_packets);
 
-class CxxGraph {
-private:
-  const CallbackHandler &rust_graph_;
-  mediapipe::CalculatorGraph mediapipe_graph_;
-  bool is_started_ = false;
+    class CxxGraph {
+    private:
+        const CallbackHandler &rust_graph_;
+        mediapipe::CalculatorGraph mediapipe_graph_;
+        bool is_started_ = false;
 
-public:
-  CxxGraph(const CallbackHandler &rust_graph, const std::string &config);
-  CxxGraph(const CxxGraph &other) = delete;
-  CxxGraph &operator=(const CxxGraph &other) = delete;
-  CxxGraph &operator=(const CxxGraph &&other) = delete;
-  ~CxxGraph();
+    public:
+        CxxGraph(const CallbackHandler &rust_graph, const std::string &config, const std::map<std::string, mediapipe::Packet> &side_packets);
+        CxxGraph(const CxxGraph &other) = delete;
+        CxxGraph &operator=(const CxxGraph &other) = delete;
+        CxxGraph &operator=(const CxxGraph &&other) = delete;
+        ~CxxGraph();
 
-  void start();
-  // Queues one image for processing
-  // Input data is expected to be ImageFormat::SRGB (24bits)
-  // Throws runtime exception if error
-  // Function does not take ownership of input data
-  void queue_packet(rust::Str input_id, std::unique_ptr<CxxPacket> packet);
-  void observe_output(rust::Str output_id);
-};
+        void start();
+        void queue_packet(rust::Str input_id, std::unique_ptr<CxxPacket> packet);
+        void observe_output(rust::Str output_id);
+    };
 
-} // namespace mediacanal
+}// namespace mediacanal
 
 #endif
