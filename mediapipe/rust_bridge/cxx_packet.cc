@@ -2,10 +2,10 @@
 
 #include "mediacanal.h"
 
-#include "mediapipe/framework/formats/image_frame.h"
-#include "mediapipe/framework/formats/image.h"
-#include "mediapipe/framework/formats/landmark.pb.h"
 #include "mediapipe/framework/formats/classification.pb.h"
+#include "mediapipe/framework/formats/image.h"
+#include "mediapipe/framework/formats/image_frame.h"
+#include "mediapipe/framework/formats/landmark.pb.h"
 #include "mediapipe/framework/packet.h"
 
 namespace mediacanal {
@@ -33,6 +33,73 @@ namespace mediacanal {
             result.is_poststream = timestamp == mediapipe::Timestamp::PostStream();
             result.second = timestamp.Seconds();
             return result;
+        }
+
+        Landmark from_mediapipe_landmark(const mediapipe::Landmark &landmark) {
+            Landmark result{};
+            result.x = landmark.x();
+            result.y = landmark.y();
+            result.z = landmark.z();
+            result.presence = landmark.presence();
+            result.visibility = landmark.visibility();
+            return result;
+        }
+
+        Landmarks from_mediapipe_landmark_list(const mediapipe::LandmarkList &landmarks) {
+            Landmarks result{};
+            for (const auto &landmark: landmarks.landmark()) {
+                result.items.push_back(from_mediapipe_landmark(landmark));
+            }
+            return result;
+        }
+
+        Landmark from_mediapipe_normalized_landmark(const mediapipe::NormalizedLandmark &landmark) {
+            Landmark result{};
+            result.x = landmark.x();
+            result.y = landmark.y();
+            result.z = landmark.z();
+            result.presence = landmark.presence();
+            result.visibility = landmark.visibility();
+            return result;
+        }
+
+        Landmarks from_mediapipe_normalized_landmark_list(const mediapipe::NormalizedLandmarkList &landmarks) {
+            Landmarks result{};
+            for (const auto &landmark: landmarks.landmark()) {
+                result.items.push_back(from_mediapipe_normalized_landmark(landmark));
+            }
+            return result;
+        }
+
+        Classification from_mediapipe_classification(const mediapipe::Classification &classification) {
+            Classification result{};
+            result.index = classification.index();
+            result.score = classification.score();
+            result.label = classification.label();
+            result.display_name = classification.display_name();
+            return result;
+        }
+
+        Classifications from_mediapipe_classification_list(const mediapipe::ClassificationList &classifications) {
+            Classifications result{};
+            for (const auto &landmark: classifications.classification()) {
+                result.items.push_back(from_mediapipe_classification(landmark));
+            }
+            return result;
+        }
+
+        ImageMemoryInfo from_image_frame(const mediapipe::ImageFrame &image) {
+            assert(image.Format() == mediapipe::ImageFormat::SRGB);
+            assert(image.WidthStep() * image.Height() ==
+                   image.PixelDataSize());
+
+            ImageMemoryInfo memory_info{};
+            memory_info.data = image.PixelData();
+            memory_info.cols = image.Width();
+            memory_info.rows = image.Height();
+            memory_info.step = image.WidthStep();
+
+            return memory_info;
         }
 
     }// namespace helper
@@ -74,6 +141,9 @@ namespace mediacanal {
     }
 
     CxxPacket::CxxPacket(mediapipe::Packet packet) : packet_(std::move(packet)) {}
+    std::unique_ptr<CxxPacket> CxxPacket::clone() const {
+        return std::make_unique<CxxPacket>(*this);
+    }
     std::unique_ptr<CxxPacket> CxxPacket::at(const Timestamp &timestamp) const {
         auto packet = packet_.At(helper::get_mediapipe_timestamp(timestamp));
         auto cxx_packet = std::make_unique<CxxPacket>(packet);
@@ -85,52 +155,48 @@ namespace mediacanal {
     }
     ImageMemoryInfo CxxPacket::get_image_frame_memory_info() const {
         auto &output_frame = packet_.Get<mediapipe::ImageFrame>();
-
-        assert(output_frame.Format() == mediapipe::ImageFormat::SRGB);
-        assert(output_frame.WidthStep() * output_frame.Height() ==
-               output_frame.PixelDataSize());
-
-        ImageMemoryInfo memory_info{};
-        memory_info.data = output_frame.PixelData();
-        memory_info.cols = output_frame.Width();
-        memory_info.rows = output_frame.Height();
-        memory_info.step = output_frame.WidthStep();
-
-        return memory_info;
+        return helper::from_image_frame(output_frame);
     }
     ImageMemoryInfo CxxPacket::get_image_memory_info() const {
         auto &output_image = packet_.Get<mediapipe::Image>();
         auto output_frame = output_image.GetImageFrameSharedPtr();
-
-        assert(output_frame->Format() == mediapipe::ImageFormat::SRGB);
-        assert(output_frame->WidthStep() * output_frame->Height() ==
-               output_frame->PixelDataSize());
-
-        ImageMemoryInfo memory_info{};
-        memory_info.data = output_frame->PixelData();
-        memory_info.cols = output_frame->Width();
-        memory_info.rows = output_frame->Height();
-        memory_info.step = output_frame->WidthStep();
-
-        return memory_info;
+        return helper::from_image_frame(*output_frame.get());
     }
     Landmarks CxxPacket::get_landmarks() const {
-
+        auto &landmarks = packet_.Get<mediapipe::LandmarkList>();
+        return helper::from_mediapipe_landmark_list(landmarks);
     }
     rust::Vec<Landmarks> CxxPacket::get_landmarks_list() const {
-        return rust::Vec<Landmarks>();
+        auto &landmarks_list = packet_.Get<std::vector<mediapipe::LandmarkList>>();
+        rust::Vec<Landmarks> result{};
+        for (auto &landmarks: landmarks_list) {
+            result.push_back(helper::from_mediapipe_landmark_list(landmarks));
+        }
+        return result;
     }
     Landmarks CxxPacket::get_normalized_landmarks() const {
-        return Landmarks();
+        auto &landmarks = packet_.Get<mediapipe::NormalizedLandmarkList>();
+        return helper::from_mediapipe_normalized_landmark_list(landmarks);
     }
     rust::Vec<Landmarks> CxxPacket::get_normalized_landmarks_list() const {
-        return rust::Vec<Landmarks>();
+        auto &landmarks_list = packet_.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
+        rust::Vec<Landmarks> result{};
+        for (auto &landmarks: landmarks_list) {
+            result.push_back(helper::from_mediapipe_normalized_landmark_list(landmarks));
+        }
+        return result;
     }
     Classifications CxxPacket::get_classifications() const {
-        return {};
+        auto &classifications = packet_.Get<mediapipe::ClassificationList>();
+        return helper::from_mediapipe_classification_list(classifications);
     }
     rust::Vec<Classifications> CxxPacket::get_classifications_list() const {
-        return {};
+        auto &classifications_list = packet_.Get<std::vector<mediapipe::ClassificationList>>();
+        rust::Vec<Classifications> result{};
+        for (auto &classifications: classifications_list) {
+            result.push_back(helper::from_mediapipe_classification_list(classifications));
+        }
+        return result;
     }
     int32 CxxPacket::get_int() const {
         auto output = packet_.Get<int>();

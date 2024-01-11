@@ -59,6 +59,12 @@ namespace mediacanal {
     public:
         const mediapipe::Packet packet_;
         explicit CxxPacket(mediapipe::Packet packet);
+        CxxPacket(const CxxPacket &other) = default;
+        CxxPacket(CxxPacket &&other) = default;
+        CxxPacket &operator=(const CxxPacket &other) = default;
+        CxxPacket &operator=(CxxPacket &&other) = default;
+
+        std::unique_ptr<CxxPacket> clone() const;
         std::unique_ptr<CxxPacket> at(const Timestamp &timestamp) const;
         Timestamp timestamp() const;
         ImageMemoryInfo get_image_frame_memory_info() const;
@@ -86,8 +92,9 @@ namespace mediacanal {
     public:
         CxxGraph(const CallbackHandler &rust_graph, const std::string &config, const std::map<std::string, mediapipe::Packet> &side_packets);
         CxxGraph(const CxxGraph &other) = delete;
+        CxxGraph(CxxGraph &&other) = delete;
         CxxGraph &operator=(const CxxGraph &other) = delete;
-        CxxGraph &operator=(const CxxGraph &&other) = delete;
+        CxxGraph &operator=(CxxGraph &&other) = delete;
         ~CxxGraph();
 
         void start();
