@@ -98,6 +98,7 @@ namespace mediacanal {
         ~CxxGraph();
 
         void start();
+        void set_input_stream_max_queue_size(rust::Str input_id, int32 size);
         void queue_packet(rust::Str input_id, std::unique_ptr<CxxPacket> packet);
         void observe_output(rust::Str output_id);
     };

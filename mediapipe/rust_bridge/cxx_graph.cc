@@ -23,6 +23,7 @@ namespace mediacanal {
 
         LOG(INFO) << "Initializing the CxxGraph.";
         mp_throw_if_error(mediapipe_graph_.Initialize(graph_config, side_packets));
+        mediapipe_graph_.SetGraphInputStreamAddMode(mediapipe::CalculatorGraph::GraphInputStreamAddMode::WAIT_TILL_NOT_FULL);
     }
 
     CxxGraph::~CxxGraph() {
@@ -45,6 +46,9 @@ namespace mediacanal {
     void CxxGraph::start() {
         mp_throw_if_error(mediapipe_graph_.StartRun({}));
         is_started_ = true;
+    }
+    void CxxGraph::set_input_stream_max_queue_size(rust::Str input_id, int32 size) {
+        mp_throw_if_error(mediapipe_graph_.SetInputStreamMaxQueueSize(std::string(input_id), static_cast<int>(size)));
     }
     void CxxGraph::queue_packet(rust::Str input_id, std::unique_ptr<CxxPacket> packet) {
         mp_throw_if_error(mediapipe_graph_.AddPacketToInputStream(std::string(input_id), packet->packet_));
