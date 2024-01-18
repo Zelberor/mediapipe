@@ -1,13 +1,13 @@
 cc_library(
     name = "mediacanal_lib",
     srcs = [
-        "cxx_generated/bridge.rs.cc",
+        "//cxx_generated:bridge.rs.cc",
         "mediacanal.cc",
         "cxx_graph.cc",
    	    "cxx_packet.cc",
   	],
     hdrs = [
-        "cxx_generated/bridge.rs.h",
+        "//cxx_generated:bridge.rs.h",
         "mediacanal.h",
     ],
     alwayslink = 1,
